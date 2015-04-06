@@ -7,5 +7,5 @@ public class SpeechletRequest
 {
     private String version;
     private Session session;
-    private Object request;
+    private AbstractRequest request;
 }

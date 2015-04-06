@@ -3,9 +3,7 @@ package com.rv.speedtest.api.model;
 import lombok.Data;
 
 @Data
-public class IntentRequest
+public class IntentRequest extends AbstractRequest
 {
-    private String type;
-    private String requestId;
     private Intent intent;
 }

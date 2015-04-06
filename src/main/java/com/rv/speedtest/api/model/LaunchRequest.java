@@ -3,8 +3,6 @@ package com.rv.speedtest.api.model;
 import lombok.Data;
 
 @Data
-public class LaunchRequest
+public class LaunchRequest extends AbstractRequest
 {
-    private String type;
-    private String requestId;
 }
