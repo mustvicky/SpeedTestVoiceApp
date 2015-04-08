@@ -28,3 +28,18 @@ Good names we can use as examples :
 5. Gist (not taken) - Great/Good Internet Speed Tester (acronym)
 6. webstat (netstat is taken)
 7. Speed gun - Your speed gun for the internet traffic
+8. bytage, bittage - like mileage but for bytes
+9. whroom - like when you rev up your car (catchy like yahoo)
+10. get-set-go - like when you trying to check the speed of a race car on a race track
+11. cruise control/ surf control - like when you let a machine maintain the speed of something. You can have funny dialogs with alexa - Alexa open cruise control, alexa what speed am I cruising
+	at right now (will give you your download/surfing speed).
+12. speedopedia - like wikipedia but for internet speed testing
+13. speedman - a super hero who will test your intent speed for you. It will make for a cool app logo. Also we can have a funny video for our app, where alexa calls and speedman
+	flies in and tests the speed and tells you.  
+	a. Alexa call speed man
+	speedman is here to save the day
+	b. speedman whats my download speed
+	<make a cool noise> Your download speed is
+	c. speedman what can you do?
+	...
+	We can market it as Alexa's friend "SpeedMan"  
