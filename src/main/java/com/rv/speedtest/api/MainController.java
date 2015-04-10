@@ -12,13 +12,13 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.android.gcm.server.Message;
-import com.google.android.gcm.server.Sender;
 import com.rv.speedtest.api.model.LaunchRequest;
 import com.rv.speedtest.api.model.OutputSpeech;
 import com.rv.speedtest.api.model.Response;
 import com.rv.speedtest.api.model.SpeechletRequest;
 import com.rv.speedtest.api.model.SpeechletResponse;
+import com.rv.speedtest.gcm.server.Message;
+import com.rv.speedtest.gcm.server.Sender;
 
 @Controller
 @CommonsLog

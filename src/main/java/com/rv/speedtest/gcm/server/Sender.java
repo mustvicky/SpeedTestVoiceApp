@@ -1,4 +1,4 @@
-package com.google.android.gcm.server;
+package com.rv.speedtest.gcm.server;
 
 /*
  * Copyright 2012 Google Inc.
@@ -16,28 +16,28 @@ package com.google.android.gcm.server;
  * limitations under the License.
  */
 
-import static com.google.android.gcm.server.Constants.GCM_SEND_ENDPOINT;
-import static com.google.android.gcm.server.Constants.JSON_CANONICAL_IDS;
-import static com.google.android.gcm.server.Constants.JSON_ERROR;
-import static com.google.android.gcm.server.Constants.JSON_FAILURE;
-import static com.google.android.gcm.server.Constants.JSON_MESSAGE_ID;
-import static com.google.android.gcm.server.Constants.JSON_MULTICAST_ID;
-import static com.google.android.gcm.server.Constants.JSON_PAYLOAD;
-import static com.google.android.gcm.server.Constants.JSON_REGISTRATION_IDS;
-import static com.google.android.gcm.server.Constants.JSON_RESULTS;
-import static com.google.android.gcm.server.Constants.JSON_SUCCESS;
-import static com.google.android.gcm.server.Constants.PARAM_COLLAPSE_KEY;
-import static com.google.android.gcm.server.Constants.PARAM_DELAY_WHILE_IDLE;
-import static com.google.android.gcm.server.Constants.PARAM_DRY_RUN;
-import static com.google.android.gcm.server.Constants.PARAM_PAYLOAD_PREFIX;
-import static com.google.android.gcm.server.Constants.PARAM_REGISTRATION_ID;
-import static com.google.android.gcm.server.Constants.PARAM_RESTRICTED_PACKAGE_NAME;
-import static com.google.android.gcm.server.Constants.PARAM_TIME_TO_LIVE;
-import static com.google.android.gcm.server.Constants.TOKEN_CANONICAL_REG_ID;
-import static com.google.android.gcm.server.Constants.TOKEN_ERROR;
-import static com.google.android.gcm.server.Constants.TOKEN_MESSAGE_ID;
+import static com.rv.speedtest.gcm.server.Constants.GCM_SEND_ENDPOINT;
+import static com.rv.speedtest.gcm.server.Constants.JSON_CANONICAL_IDS;
+import static com.rv.speedtest.gcm.server.Constants.JSON_ERROR;
+import static com.rv.speedtest.gcm.server.Constants.JSON_FAILURE;
+import static com.rv.speedtest.gcm.server.Constants.JSON_MESSAGE_ID;
+import static com.rv.speedtest.gcm.server.Constants.JSON_MULTICAST_ID;
+import static com.rv.speedtest.gcm.server.Constants.JSON_PAYLOAD;
+import static com.rv.speedtest.gcm.server.Constants.JSON_REGISTRATION_IDS;
+import static com.rv.speedtest.gcm.server.Constants.JSON_RESULTS;
+import static com.rv.speedtest.gcm.server.Constants.JSON_SUCCESS;
+import static com.rv.speedtest.gcm.server.Constants.PARAM_COLLAPSE_KEY;
+import static com.rv.speedtest.gcm.server.Constants.PARAM_DELAY_WHILE_IDLE;
+import static com.rv.speedtest.gcm.server.Constants.PARAM_DRY_RUN;
+import static com.rv.speedtest.gcm.server.Constants.PARAM_PAYLOAD_PREFIX;
+import static com.rv.speedtest.gcm.server.Constants.PARAM_REGISTRATION_ID;
+import static com.rv.speedtest.gcm.server.Constants.PARAM_RESTRICTED_PACKAGE_NAME;
+import static com.rv.speedtest.gcm.server.Constants.PARAM_TIME_TO_LIVE;
+import static com.rv.speedtest.gcm.server.Constants.TOKEN_CANONICAL_REG_ID;
+import static com.rv.speedtest.gcm.server.Constants.TOKEN_ERROR;
+import static com.rv.speedtest.gcm.server.Constants.TOKEN_MESSAGE_ID;
 
-import com.google.android.gcm.server.Result.Builder;
+import com.rv.speedtest.gcm.server.Result.Builder;
 
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
