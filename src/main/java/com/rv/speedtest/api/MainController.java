@@ -2,7 +2,6 @@ package com.rv.speedtest.api;
 
 import java.io.IOException;
 import java.util.Random;
-import java.util.UUID;
 
 import lombok.extern.apachecommons.CommonsLog;
 
@@ -15,9 +14,6 @@ import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.android.gcm.server.Message;
-import com.google.android.gcm.server.Result;
-import com.google.android.gcm.server.Sender;
 import com.rv.speedtest.api.model.LaunchRequest;
 import com.rv.speedtest.api.model.OutputSpeech;
 import com.rv.speedtest.api.model.RegisterDeviceRequest;
@@ -31,6 +27,9 @@ import com.rv.speedtest.datastore.model.CustomerRequestState;
 import com.rv.speedtest.datastore.model.CustomerState;
 import com.rv.speedtest.datastore.model.NetworkSpeedRequest;
 import com.rv.speedtest.datastore.model.NetworkSpeedResponse;
+import com.rv.speedtest.gcm.server.Message;
+import com.rv.speedtest.gcm.server.Result;
+import com.rv.speedtest.gcm.server.Sender;
 
 @Controller
 @CommonsLog
@@ -52,7 +51,7 @@ public class MainController {
 			throws JsonProcessingException {
 		// Send message
 		try {
-			sendPushMessage();
+			sendPushMessage("messageId");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -95,14 +94,6 @@ public class MainController {
 	        state.setMobileRegistrationId(registerDeviceRequest.getMobileRegistrationId());
 	    }
 	    return objectMapper.writeValueAsString(response);
-	}
-
-	@RequestMapping(value = "/getspeechlet", method = RequestMethod.GET, produces = "application/json; charset=utf-8")
-	@ResponseBody
-	public String getEntryMethod(@RequestBody String request)
-			throws JsonProcessingException {
-		System.out.println("Request= " + request);
-		return handleLaunchRequest(null, null);
 	}
 
 	private String handleLaunchRequest(LaunchRequest launchRequest, SpeechletRequest speechletRequest)
