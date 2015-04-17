@@ -23,3 +23,5 @@ curl --header "Authorization: key=AIzaSyBpDJsDuAaroobcxArYGIPzF9G5KudlAaA" \
        https://android.googleapis.com/gcm/send \
        -d "{\"registration_ids\":[\"APA91bHXAyfIjAsByGZ5eCUyN578lSav2IsG325asY6ILuwWsPGRM0vlKtk2nvW1o65MQozk0jCzk62zL0yAJI_9B8HNsQ6iEGt3N_xpd6ZMXA3dHoFcZPPKsCuV8Lp5OUFwEvdI7k4rhqUBQ_foLNqEmLEO0W5zLg\"]}"
 
+
+curl -H "Accept: application/json" --insecure -H "Content-type: application/json" -d '{"mobileRegistrationId": "XYZ", "invitationCode": "9740"}' http://localhost:8080/SpeedTestVoiceApp/registerDevice

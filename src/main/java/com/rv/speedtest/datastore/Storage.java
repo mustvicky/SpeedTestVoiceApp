@@ -10,7 +10,8 @@ public interface Storage
      * @param userId
      * @return
      */
-    CustomerState getCustomerState(String userId);
+    CustomerState getCustomerStateFromUserId(String userId);
+    CustomerState getCustomerStateFromInviteCode(String inviteCode);
     
     /**
      * Deletes/Removes the customer state in the system. 
@@ -18,7 +19,9 @@ public interface Storage
      * @param userId
      * @return
      */
-    boolean invalidateCustomerState(String userId);
+    boolean invalidateCustomerStateFromUsedId(String userId);
+    boolean invalidateCustomerStateFromInvitationCode(String inviteCode);
+    boolean invalidateCustomerRequest(String requestId);
     
     boolean createCustomerState(CustomerState customerState);
     
