@@ -85,6 +85,12 @@ public class InMemoryStorage implements Storage
         }
         return false;
     }
+    
+    @Override
+    public CustomerRequestState getCustomerRequestState(String requestId)
+    {
+        return requestToRequestState.get(requestId);
+    }
 
     @Override
     public boolean createCustomerRequestState(CustomerRequestState customerRequestState)

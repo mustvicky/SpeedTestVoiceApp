@@ -18,6 +18,8 @@ import com.rv.speedtest.api.model.LaunchRequest;
 import com.rv.speedtest.api.model.OutputSpeech;
 import com.rv.speedtest.api.model.RegisterDeviceRequest;
 import com.rv.speedtest.api.model.RegisterDeviceResponse;
+import com.rv.speedtest.api.model.ReportNetworkSpeedRequest;
+import com.rv.speedtest.api.model.ReportNetworkSpeedResponse;
 import com.rv.speedtest.api.model.Response;
 import com.rv.speedtest.api.model.SpeechletRequest;
 import com.rv.speedtest.api.model.SpeechletResponse;
@@ -77,6 +79,23 @@ public class MainController {
 		Message messageToSend = builder.build();
 		Result result = sender.send(messageToSend, mobileRegistrationId, 2);
 		return result.getMessageId();
+	}
+	
+	@RequestMapping(value = "/reportNetworkSpeed", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
+    @ResponseBody
+	public ReportNetworkSpeedResponse reportNetworkSpeed(ReportNetworkSpeedRequest networkSpeed)
+	{
+	    CustomerRequestState requestState = storageInstance.getCustomerRequestState(networkSpeed.getMessageId());
+	    ReportNetworkSpeedResponse networkSpeedResponse = new ReportNetworkSpeedResponse();
+	    if (requestState == null)
+	    {
+	        networkSpeedResponse.setError("Couldn't find any pending request");
+	        return networkSpeedResponse;
+	    }
+	    NetworkSpeedResponse speedResponse = new NetworkSpeedResponse();
+	    speedResponse.setDownloadSpeedInKB(networkSpeed.getNetworkSpeedInKb());
+	    requestState.setNetworkSpeedResponse(speedResponse);
+	    return networkSpeedResponse;
 	}
 	
 	@RequestMapping(value = "/registerDevice", method = RequestMethod.POST, produces = "application/json; charset=utf-8")

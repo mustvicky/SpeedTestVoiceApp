@@ -32,6 +32,7 @@ public interface Storage
      * @return
      */
     CustomerRequestState getCustomerRequestState(CustomerState customerState);
+    CustomerRequestState getCustomerRequestState(String requestId);
     
     boolean createCustomerRequestState(CustomerRequestState customerRequestState);
 }
