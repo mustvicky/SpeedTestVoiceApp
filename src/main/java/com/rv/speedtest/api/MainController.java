@@ -12,7 +12,9 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rv.speedtest.api.model.LaunchRequest;
 import com.rv.speedtest.api.model.OutputSpeech;
@@ -83,19 +85,20 @@ public class MainController {
 	
 	@RequestMapping(value = "/reportNetworkSpeed", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
     @ResponseBody
-	public ReportNetworkSpeedResponse reportNetworkSpeed(ReportNetworkSpeedRequest networkSpeed)
+	public String reportNetworkSpeed(@RequestBody String request) throws IOException
 	{
+	    ReportNetworkSpeedRequest networkSpeed = objectMapper.readValue(request, ReportNetworkSpeedRequest.class);
 	    CustomerRequestState requestState = storageInstance.getCustomerRequestState(networkSpeed.getMessageId());
 	    ReportNetworkSpeedResponse networkSpeedResponse = new ReportNetworkSpeedResponse();
 	    if (requestState == null)
 	    {
 	        networkSpeedResponse.setError("Couldn't find any pending request");
-	        return networkSpeedResponse;
+	        return objectMapper.writeValueAsString(networkSpeedResponse);
 	    }
 	    NetworkSpeedResponse speedResponse = new NetworkSpeedResponse();
 	    speedResponse.setDownloadSpeedInKB(networkSpeed.getNetworkSpeedInKb());
 	    requestState.setNetworkSpeedResponse(speedResponse);
-	    return networkSpeedResponse;
+	    return objectMapper.writeValueAsString(networkSpeedResponse);
 	}
 	
 	@RequestMapping(value = "/registerDevice", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
@@ -147,7 +150,7 @@ public class MainController {
 		    {
 		        // send the message
 		        String requestId = sendPushMessage(customerState.getMobileRegistrationId());
-		        
+		        System.out.println("Sent the push message with request id: " + requestId);
 		        // save the state
 		        customerRequestState = new CustomerRequestState();
 		        customerRequestState.setCustomerRequestId(requestId);
@@ -209,7 +212,7 @@ public class MainController {
 
     private String generateRandomInvitationCode()
     {
-        return (new Random().nextInt() % 10000) + "";
+        return Math.abs((new Random().nextInt() % 10000)) + "";
     }
 
 	private String handleGenericError(String message)
