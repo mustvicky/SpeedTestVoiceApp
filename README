@@ -16,14 +16,6 @@ curl -H "Accept: application/json" \
 http://localhost:8080/SpeedTestVoiceApp/speechlet2
 https://speedtestvoiceapp-1878794768.us-west-2.elb.amazonaws.com/SpeedTestVoiceApp/speechlet
 
--------------------------------------------------------------------------------
-
-curl --header "Authorization: key=AIzaSyBpDJsDuAaroobcxArYGIPzF9G5KudlAaA" \
-       --header Content-Type:"application/json" \
-       https://android.googleapis.com/gcm/send \
-       -d "{\"registration_ids\":[\"APA91bHXAyfIjAsByGZ5eCUyN578lSav2IsG325asY6ILuwWsPGRM0vlKtk2nvW1o65MQozk0jCzk62zL0yAJI_9B8HNsQ6iEGt3N_xpd6ZMXA3dHoFcZPPKsCuV8Lp5OUFwEvdI7k4rhqUBQ_foLNqEmLEO0W5zLg\"]}"
-
-
 curl -H "Accept: application/json" --insecure -H \
    "Content-type: application/json" -d '{"mobileRegistrationId": "XYZ", "invitationCode": "9740"}' \ 
    http://localhost:8080/SpeedTestVoiceApp/registerDevice
@@ -32,3 +24,13 @@ curl -H "Accept: application/json" --insecure -H \
 curl -H "Accept: application/json" --insecure -H \
    "Content-type: application/json" -d '{"messageId": "XYZ"}' \ 
    http://localhost:8080/SpeedTestVoiceApp/reportNetworkSpeed
+
+-----------------------MOBILE--------------------------------------------------------
+
+curl --header "Authorization: key=AIzaSyBpDJsDuAaroobcxArYGIPzF9G5KudlAaA" \
+       --header Content-Type:"application/json" \
+       https://android.googleapis.com/gcm/send \
+       -d "{\"registration_ids\":[\"APA91bHXAyfIjAsByGZ5eCUyN578lSav2IsG325asY6ILuwWsPGRM0vlKtk2nvW1o65MQozk0jCzk62zL0yAJI_9B8HNsQ6iEGt3N_xpd6ZMXA3dHoFcZPPKsCuV8Lp5OUFwEvdI7k4rhqUBQ_foLNqEmLEO0W5zLg\"]}"
+
+   
+curl --header "Authorization: key=AIzaSyBpDJsDuAaroobcxArYGIPzF9G5KudlAaA" --header Content-Type:"application/json" https://android.googleapis.com/gcm/send -d "{\"registration_ids\":[\" APA91bEbx_AnjJzVCcDrXDw0xlTabNAypanTIatLjuhnBC-2X7q-_JwGm6Ob-gBdYpBY-YDvhAhrAVOv5fCICzX0yasvcBbMXjz22lIBYZ2NXXPOVCufBF3gulRpNgFcvrpU3FtZi1m7w10u_D69GgcTX-qKYzHxVQ\"],\"data\":{\"requestId\":\"hello\"}}"

@@ -1,10 +1,15 @@
 package com.rv.speedtest.api;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.Map.Entry;
 import java.util.Random;
+import java.util.UUID;
 
 import lombok.extern.apachecommons.CommonsLog;
 
+import org.apache.commons.lang3.RandomStringUtils;
+import org.hibernate.id.UUIDGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -12,9 +17,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
-import com.fasterxml.jackson.core.JsonParseException;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rv.speedtest.api.model.LaunchRequest;
 import com.rv.speedtest.api.model.OutputSpeech;
@@ -32,6 +35,7 @@ import com.rv.speedtest.datastore.model.CustomerState;
 import com.rv.speedtest.datastore.model.NetworkSpeedRequest;
 import com.rv.speedtest.datastore.model.NetworkSpeedResponse;
 import com.rv.speedtest.gcm.server.Message;
+import com.rv.speedtest.gcm.server.Message.Builder;
 import com.rv.speedtest.gcm.server.Result;
 import com.rv.speedtest.gcm.server.Sender;
 
@@ -46,6 +50,8 @@ public class MainController {
 	
 	private static final String ANDROID_APP_SPOKEN_NAME = "Speed Test";
 	
+	private static final String REQUEST_ID = "requestId";
+	
 	@Autowired
 	private Storage storageInstance;
 
@@ -55,7 +61,7 @@ public class MainController {
 			throws JsonProcessingException {
 		// Send message
 		try {
-			sendPushMessage("messageId");
+			//sendPushMessage("messageId");
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
@@ -74,20 +80,32 @@ public class MainController {
 	// download speed. This method also invokes TTS so that the output is spoken
 	// to the user.
 
-	private String sendPushMessage(String mobileRegistrationId) throws IOException {
+	private String sendPushMessage(String mobileRegistrationId,
+			HashMap<String, String> payload) throws IOException
+	{
 		Sender sender = new Sender(AUTH_KEY);
 		Message.Builder builder = new Message.Builder();
-		builder.addData("key", "value");
+		addPayloadForMessage(builder, payload);
 		Message messageToSend = builder.build();
 		Result result = sender.send(messageToSend, mobileRegistrationId, 2);
 		return result.getMessageId();
 	}
-	
+
+	private void addPayloadForMessage(Builder builder,
+			HashMap<String, String> payload)
+	{
+		for (Entry<String, String> entry : payload.entrySet())
+		{
+			builder.addData(entry.getKey(), entry.getValue());
+		}
+	}
+
 	@RequestMapping(value = "/reportNetworkSpeed", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
     @ResponseBody
 	public String reportNetworkSpeed(@RequestBody String request) throws IOException
 	{
 	    ReportNetworkSpeedRequest networkSpeed = objectMapper.readValue(request, ReportNetworkSpeedRequest.class);
+	    System.out.println("Speed : "+networkSpeed.getNetworkSpeedInKb());
 	    CustomerRequestState requestState = storageInstance.getCustomerRequestState(networkSpeed.getMessageId());
 	    ReportNetworkSpeedResponse networkSpeedResponse = new ReportNetworkSpeedResponse();
 	    if (requestState == null)
@@ -149,7 +167,11 @@ public class MainController {
 		    if (customerRequestState == null)
 		    {
 		        // send the message
-		        String requestId = sendPushMessage(customerState.getMobileRegistrationId());
+		    	String requestId = generateRequestId();
+		    	HashMap<String,String> payload = new HashMap<>();
+		    	payload.put(REQUEST_ID,requestId);
+		    	
+		        sendPushMessage(customerState.getMobileRegistrationId(),payload);
 		        System.out.println("Sent the push message with request id: " + requestId);
 		        // save the state
 		        customerRequestState = new CustomerRequestState();
@@ -215,6 +237,11 @@ public class MainController {
         return Math.abs((new Random().nextInt() % 10000)) + "";
     }
 
+    private String generateRequestId()
+    {
+    	return RandomStringUtils.randomAlphanumeric(8);
+    }
+    
 	private String handleGenericError(String message)
 			throws JsonProcessingException {
 		SpeechletResponse speechletResponse = new SpeechletResponse();
