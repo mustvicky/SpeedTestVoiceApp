@@ -185,7 +185,7 @@ public class MainController {
 		        customerRequestState.setRequestExpiryTimeMillis(System.currentTimeMillis() + FIVE_MINS_MILLIS);
 		        
 		        storageInstance.createCustomerRequestState(customerRequestState);
-		        outputStringBuilder.append("Sent the request to find internet speed on your mobile network. Please invoke the voice app in two mins");
+		        outputStringBuilder.append("I have initiated the request to find internet speed on your mobile network. Please invoke the voice app in two mins");
 		    }
 		    else if (customerRequestState.getNetworkSpeedResponse() != null)
 		    {
