@@ -11,5 +11,6 @@ public class CustomerState
      */
     private long invitationExpiryTimeMillis;
     private String invitationCode;
+    private String invitationVuiCode;
     private String mobileRegistrationId;
 }

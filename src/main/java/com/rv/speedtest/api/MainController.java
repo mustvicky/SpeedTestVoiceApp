@@ -6,6 +6,7 @@ import java.util.Map.Entry;
 import java.util.Random;
 import java.util.UUID;
 
+import lombok.Data;
 import lombok.extern.apachecommons.CommonsLog;
 
 import org.apache.commons.lang3.RandomStringUtils;
@@ -42,7 +43,9 @@ import com.rv.speedtest.gcm.server.Sender;
 @Controller
 @CommonsLog
 public class MainController {
-	private static final int FIVE_MINS_MILLIS = 60*5*1000;
+	private static final String APP_VUI_NAME = "Phone finder";
+	private static final String APP_ANDROID_NAME = "Alexa Phone finder";
+    private static final int FIVE_MINS_MILLIS = 60*5*1000;
     private static final String GCM_SEND_URL = "https://android.googleapis.com/gcm/send";
 	private static final String AUTH_KEY = "AIzaSyBpDJsDuAaroobcxArYGIPzF9G5KudlAaA";
 	private static final String REG_ID = "APA91bEpA-bLwPn-rbX7wvv8bl7XuoakrZqL8ubCv8ECtlx6domBPctuN6kWtEd1fdOPAX8RtCeIwrbDpc9_3ljQuU5L6lFuNusjzErAKARGkp-dCh8KZAqidBNcB5RHp1yGzLiOujICTjU4gd2UpaVMxERpHwQlxg";
@@ -129,14 +132,18 @@ public class MainController {
 	    {
 	        response.setError("App couldn't identify your invitation code: " + registerDeviceRequest.getInvitationCode());
 	    }
-	    else
+	    else if (state.getMobileRegistrationId() != null)
+	    {
+	        response.setError("Your mobile is already paired.");
+	    }
+	    else 
 	    {
 	        state.setMobileRegistrationId(registerDeviceRequest.getMobileRegistrationId());
 	    }
 	    return objectMapper.writeValueAsString(response);
 	}
 
-	private String handleLaunchRequest(LaunchRequest launchRequest, SpeechletRequest speechletRequest)
+	private String handleLaunchRequest(SpeechletRequest speechletRequest)
 			throws IOException {
 		SpeechletResponse speechletResponse = new SpeechletResponse();
 		Response response = new Response();
@@ -145,27 +152,25 @@ public class MainController {
 		OutputSpeech speechoutput = new OutputSpeech();
 		response.setOutputSpeech(speechoutput);
 		StringBuilder outputStringBuilder = new StringBuilder();
-		outputStringBuilder.append("Welcome to Speed test app. ");
 		CustomerState customerState = null;
 		User user = speechletRequest.getSession().getUser();
 		customerState = storageInstance.getCustomerStateFromUserId(user.getUserId());
 		
 		if (customerState == null)
 		{
+		    outputStringBuilder.append("Welcome to " + APP_VUI_NAME + ". ");
 		    customerState = new CustomerState();
-		    String invitationVoiceCode = generateRandomInvitationCode();
-		    customerState.setInvitationCode(invitationVoiceCode);
+		    InvitationCode invitationCode = generateRandomInvitationCode();
+		    customerState.setInvitationCode(invitationCode.getGuiCode());
+		    customerState.setInvitationVuiCode(invitationCode.getVuiCode());
 		    customerState.setInvitationExpiryTimeMillis(System.currentTimeMillis() + FIVE_MINS_MILLIS);
 		    customerState.setUserId(user.getUserId());
 		    storageInstance.createCustomerState(customerState);
-		    outputStringBuilder.append("To use the voice app, please install the android app named " 
-		            + ANDROID_APP_SPOKEN_NAME + " from playstore and provide the following " + invitationVoiceCode + " invitation code to it. ");
+		    outputStringBuilder.append("You need to pair a companion android app in order to use " + APP_VUI_NAME + ". Please install " 
+		            + APP_ANDROID_NAME + " from google android playstore and provide " + invitationCode.getVuiCode() + " as the invitation code to pair the android app with Alexa ");
 		}
 		else if (customerState.getMobileRegistrationId() != null)
 		{
-		    CustomerRequestState customerRequestState = storageInstance.getCustomerRequestState(customerState);
-		    if (customerRequestState == null)
-		    {
 		        // send the message
 		    	String requestId = generateRequestId();
 		    	HashMap<String,String> payload = new HashMap<>();
@@ -173,68 +178,48 @@ public class MainController {
 		    	
 		        sendPushMessage(customerState.getMobileRegistrationId(),payload);
 		        System.out.println("Sent the push message with request id: " + requestId);
-		        // save the state
-		        customerRequestState = new CustomerRequestState();
-		        customerRequestState.setCustomerRequestId(requestId);
-		        customerRequestState.setCustomerState(customerState);
-		        
-		        NetworkSpeedRequest networkSpeedRequest = new NetworkSpeedRequest();
-		        customerRequestState.setNetworkSpeedRequest(networkSpeedRequest);
-		        networkSpeedRequest.setRequestId(requestId);
-		        
-		        customerRequestState.setRequestExpiryTimeMillis(System.currentTimeMillis() + FIVE_MINS_MILLIS);
-		        
-		        storageInstance.createCustomerRequestState(customerRequestState);
-		        outputStringBuilder.append("I have initiated the request to find internet speed on your mobile network. Please invoke the voice app in two mins");
-		    }
-		    else if (customerRequestState.getNetworkSpeedResponse() != null)
-		    {
-		        NetworkSpeedResponse speedResponse = customerRequestState.getNetworkSpeedResponse();
-		        // TODO: implement the expiry of response object
-		        outputStringBuilder.append("Your network speed is " + speedResponse.getDownloadSpeedInKB() + " kilo bytes");
-		        storageInstance.invalidateCustomerRequest(customerRequestState.getCustomerRequestId());
-		    }
-		    else if (System.currentTimeMillis() < customerRequestState.getRequestExpiryTimeMillis())
-		    {
-		        outputStringBuilder.append("Still waiting for the response from your mobile device");
-		    }
-		    else
-		    {
-		        customerRequestState = new CustomerRequestState();
-                String requestId = System.currentTimeMillis() + "";
-                customerRequestState.setCustomerRequestId(requestId);
-                customerRequestState.setCustomerState(customerState);
-                
-                NetworkSpeedRequest networkSpeedRequest = new NetworkSpeedRequest();
-                customerRequestState.setNetworkSpeedRequest(networkSpeedRequest);
-                networkSpeedRequest.setRequestId(requestId);
-                
-                customerRequestState.setRequestExpiryTimeMillis(System.currentTimeMillis() + FIVE_MINS_MILLIS);
-                storageInstance.createCustomerRequestState(customerRequestState);
-                outputStringBuilder.append("Sent the request to find internet speed on your mobile network. Please invoke the voice app in two mins");
-		    }
+		        outputStringBuilder.append("Ringing your phone.");
 		}
 		else if (System.currentTimeMillis() > customerState.getInvitationExpiryTimeMillis())
 		{
-		    String invitationVoiceCode = generateRandomInvitationCode();
-		    customerState.setInvitationCode(invitationVoiceCode);
+		    InvitationCode invitationCode = generateRandomInvitationCode();
+		    customerState.setInvitationCode(invitationCode.getGuiCode());
+		    customerState.setInvitationVuiCode(invitationCode.getVuiCode());
 		    customerState.setInvitationExpiryTimeMillis(System.currentTimeMillis() + FIVE_MINS_MILLIS);
-		    outputStringBuilder.append("To use the voice app, please install the android app named " 
-                    + ANDROID_APP_SPOKEN_NAME + " from playstore and provide the following " + invitationVoiceCode + " to it. ");
+		    outputStringBuilder.append("Please install " 
+                    + APP_ANDROID_NAME + " from google android playstore and provide " + invitationCode.getVuiCode() + " as the invitation code to pair the android app with Alexa");
 		}
 		else {
-		    String invitationVoiceCode = customerState.getInvitationCode();
-		    outputStringBuilder.append("To use the voice app, please install the android app named " 
-                    + ANDROID_APP_SPOKEN_NAME + " from playstore and provide the following " + invitationVoiceCode + " to it. ");
+		    String invitationVuiCode = customerState.getInvitationVuiCode();
+		    outputStringBuilder.append("Please install " 
+                    + APP_ANDROID_NAME + " from google android playstore and provide " + invitationVuiCode + " as the invitation code to pair the android app with Alexa");
 		}
 
 		speechoutput.setText(outputStringBuilder.toString());
 		return objectMapper.writeValueAsString(speechletResponse);
 	}
 
-    private String generateRandomInvitationCode()
+	@Data
+	class InvitationCode 
+	{
+	    private String vuiCode;
+	    private String guiCode;
+	}
+	
+    private InvitationCode generateRandomInvitationCode()
     {
-        return Math.abs((new Random().nextInt() % 10000)) + "";
+        InvitationCode ic = new InvitationCode();
+        int randomNumber = Math.abs((new Random().nextInt() % 10000));
+        ic.setGuiCode(randomNumber + "");
+        StringBuilder randomCode = new StringBuilder();
+        while (randomNumber > 0)
+        {
+            int lastDigit = randomNumber % 10;
+            randomNumber /= 10;
+            randomCode.insert(0, " " + lastDigit);
+        }
+        ic.setVuiCode(randomCode.substring(1, randomCode.length()));
+        return ic;
     }
 
     private String generateRequestId()
@@ -263,11 +248,7 @@ public class MainController {
 		SpeechletRequest speechletRequest = objectMapper.readValue(request,
 				SpeechletRequest.class);
 		if (speechletRequest.getRequest() != null) {
-			if (speechletRequest.getRequest() instanceof LaunchRequest) {
-				return handleLaunchRequest((LaunchRequest) speechletRequest
-						.getRequest(), speechletRequest);
-			}
-			return handleGenericError("Only launch request is handled till now");
+		    return handleLaunchRequest(speechletRequest);
 		}
 		return handleGenericError("Request object is null");
 	}
