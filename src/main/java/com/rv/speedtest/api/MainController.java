@@ -191,7 +191,7 @@ public class MainController {
 		    {
 		        NetworkSpeedResponse speedResponse = customerRequestState.getNetworkSpeedResponse();
 		        // TODO: implement the expiry of response object
-		        outputStringBuilder.append("Your network speed is " + speedResponse.getDownloadSpeedInKB() + " kilo bytes");
+		        outputStringBuilder.append("Your network speed is " + speedResponse.getDownloadSpeedInKB() + " mega bits per second");
 		        storageInstance.invalidateCustomerRequest(customerRequestState.getCustomerRequestId());
 		    }
 		    else if (System.currentTimeMillis() < customerRequestState.getRequestExpiryTimeMillis())

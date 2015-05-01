@@ -107,6 +107,7 @@ public class InMemoryStorage implements Storage
 //            throw new CustomerRequestAlreadyExists("Customer request [" + customerRequestState.getCustomerRequestId() + "] already exists");
 //        }
         requestToRequestState.put(customerRequestState.getCustomerRequestId(), customerRequestState);
+        customerToRequestState.put(customerRequestState.getCustomerState().getUserId(), customerRequestState);
         return true;
     }
 
