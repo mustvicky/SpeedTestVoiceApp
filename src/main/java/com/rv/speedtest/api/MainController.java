@@ -47,8 +47,9 @@ public class MainController {
 	private static final String APP_ANDROID_NAME = "Alexa Phone finder";
     private static final int FIVE_MINS_MILLIS = 60*5*1000;
     private static final String GCM_SEND_URL = "https://android.googleapis.com/gcm/send";
-	private static final String AUTH_KEY = "AIzaSyBpDJsDuAaroobcxArYGIPzF9G5KudlAaA";
-	private static final String REG_ID = "APA91bEpA-bLwPn-rbX7wvv8bl7XuoakrZqL8ubCv8ECtlx6domBPctuN6kWtEd1fdOPAX8RtCeIwrbDpc9_3ljQuU5L6lFuNusjzErAKARGkp-dCh8KZAqidBNcB5RHp1yGzLiOujICTjU4gd2UpaVMxERpHwQlxg";
+
+    // Sender id for caricaturers. Check from : https://console.developers.google.com/project/360023129197/apiui/credential?authuser=0
+	private static final String AUTH_KEY = "AIzaSyBJA1IZj-t7iEx1K3fdZIAju9b966skWOA";
 	private static final ObjectMapper objectMapper = new ObjectMapper();
 	
 	private static final String ANDROID_APP_SPOKEN_NAME = "Speed Test";
