@@ -19,7 +19,11 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.rv.speedtest.api.model.AbstractRequest;
+import com.rv.speedtest.api.model.Card;
+import com.rv.speedtest.api.model.IntentRequest;
 import com.rv.speedtest.api.model.LaunchRequest;
 import com.rv.speedtest.api.model.OutputSpeech;
 import com.rv.speedtest.api.model.RegisterDeviceRequest;
@@ -27,13 +31,13 @@ import com.rv.speedtest.api.model.RegisterDeviceResponse;
 import com.rv.speedtest.api.model.ReportNetworkSpeedRequest;
 import com.rv.speedtest.api.model.ReportNetworkSpeedResponse;
 import com.rv.speedtest.api.model.Response;
+import com.rv.speedtest.api.model.SessionEndedRequest;
 import com.rv.speedtest.api.model.SpeechletRequest;
 import com.rv.speedtest.api.model.SpeechletResponse;
 import com.rv.speedtest.api.model.User;
 import com.rv.speedtest.datastore.Storage;
 import com.rv.speedtest.datastore.model.CustomerRequestState;
 import com.rv.speedtest.datastore.model.CustomerState;
-import com.rv.speedtest.datastore.model.NetworkSpeedRequest;
 import com.rv.speedtest.datastore.model.NetworkSpeedResponse;
 import com.rv.speedtest.gcm.server.Message;
 import com.rv.speedtest.gcm.server.Message.Builder;
@@ -44,35 +48,23 @@ import com.rv.speedtest.gcm.server.Sender;
 @CommonsLog
 public class MainController {
 	private static final String APP_VUI_NAME = "Phone finder";
-	private static final String APP_ANDROID_NAME = "Alexa Phone finder";
+	private static final String APP_ANDROID_NAME = "Alexa Phone Finder";
+	private static final String ANDROID_APP_INSTALLATION_MESSAGE = "Please install \""  + APP_ANDROID_NAME + "\" from google play store or amazon app store. ";
     private static final int FIVE_MINS_MILLIS = 60*5*1000;
     private static final String GCM_SEND_URL = "https://android.googleapis.com/gcm/send";
 
     // Sender id for caricaturers. Check from : https://console.developers.google.com/project/360023129197/apiui/credential?authuser=0
 	private static final String AUTH_KEY = "AIzaSyBJA1IZj-t7iEx1K3fdZIAju9b966skWOA";
 	private static final ObjectMapper objectMapper = new ObjectMapper();
-	
-	private static final String ANDROID_APP_SPOKEN_NAME = "Speed Test";
+	static
+	{
+	    objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+	}
 	
 	private static final String REQUEST_ID = "requestId";
 	
 	@Autowired
 	private Storage storageInstance;
-
-	@RequestMapping(value = "/speechlet", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
-	@ResponseBody
-	public String genericEntryMethod(@RequestBody String request)
-			throws JsonProcessingException {
-		// Send message
-		try {
-			//sendPushMessage("messageId");
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-
-		// return getEntryMethod(request);
-		return "String";
-	}
 
 	// TODO: Rohan Joshi 04092015 Add a method which can be called by the mobile
 	// app to store pin -> registration Id.
@@ -84,14 +76,26 @@ public class MainController {
 	// download speed. This method also invokes TTS so that the output is spoken
 	// to the user.
 
+	private static class PushMessageSendFailedException extends Exception
+	{
+	    public PushMessageSendFailedException(String errMsg)
+        {
+            super(errMsg);
+        }
+	}
 	private String sendPushMessage(String mobileRegistrationId,
-			HashMap<String, String> payload) throws IOException
+			HashMap<String, String> payload) throws IOException, PushMessageSendFailedException
 	{
 		Sender sender = new Sender(AUTH_KEY);
 		Message.Builder builder = new Message.Builder();
 		addPayloadForMessage(builder, payload);
 		Message messageToSend = builder.build();
 		Result result = sender.send(messageToSend, mobileRegistrationId, 2);
+		if (result == null || result.getMessageId() == null || result.getErrorCodeName() != null)
+		{
+		    log.error("Error in the result object. Result [" + result + "]");
+		    throw new PushMessageSendFailedException("Error in sending push message");
+		}
 		return result.getMessageId();
 	}
 
@@ -109,7 +113,7 @@ public class MainController {
 	public String reportNetworkSpeed(@RequestBody String request) throws IOException
 	{
 	    ReportNetworkSpeedRequest networkSpeed = objectMapper.readValue(request, ReportNetworkSpeedRequest.class);
-	    System.out.println("Speed : "+networkSpeed.getNetworkSpeedInKb());
+	    log.info("Speed : "+networkSpeed.getNetworkSpeedInKb());
 	    CustomerRequestState requestState = storageInstance.getCustomerRequestState(networkSpeed.getMessageId());
 	    ReportNetworkSpeedResponse networkSpeedResponse = new ReportNetworkSpeedResponse();
 	    if (requestState == null)
@@ -131,7 +135,7 @@ public class MainController {
 	    RegisterDeviceResponse response = new RegisterDeviceResponse();
 	    if (state == null)
 	    {
-	        response.setError("App couldn't identify your invitation code: " + registerDeviceRequest.getInvitationCode());
+	        response.setError("App couldn't identify your invitation pin: " + registerDeviceRequest.getInvitationCode());
 	    }
 	    else if (state.getMobileRegistrationId() != null)
 	    {
@@ -144,7 +148,7 @@ public class MainController {
 	    return objectMapper.writeValueAsString(response);
 	}
 
-	private String handleLaunchRequest(SpeechletRequest speechletRequest)
+	private String handleFindPhoneRequest(SpeechletRequest speechletRequest)
 			throws IOException {
 		SpeechletResponse speechletResponse = new SpeechletResponse();
 		Response response = new Response();
@@ -152,11 +156,17 @@ public class MainController {
 		speechletResponse.setResponse(response);
 		OutputSpeech speechoutput = new OutputSpeech();
 		response.setOutputSpeech(speechoutput);
+		
+		Card card = new Card();
+        card.setTitle(APP_VUI_NAME);
+        response.setCard(card);
+        
 		StringBuilder outputStringBuilder = new StringBuilder();
 		CustomerState customerState = null;
 		User user = speechletRequest.getSession().getUser();
 		customerState = storageInstance.getCustomerStateFromUserId(user.getUserId());
 		
+		boolean includeAppLinkInCard = false;
 		if (customerState == null)
 		{
 		    outputStringBuilder.append("Welcome to " + APP_VUI_NAME + ". ");
@@ -167,8 +177,9 @@ public class MainController {
 		    customerState.setInvitationExpiryTimeMillis(System.currentTimeMillis() + FIVE_MINS_MILLIS);
 		    customerState.setUserId(user.getUserId());
 		    storageInstance.createCustomerState(customerState);
-		    outputStringBuilder.append("You need to pair a companion android app in order to use " + APP_VUI_NAME + ". Please install " 
-		            + APP_ANDROID_NAME + " from google android playstore and provide " + invitationCode.getVuiCode() + " as the invitation code to pair the android app with Alexa ");
+		    card.setSubtitle("Pair Phone");
+		    includeAppLinkInCard = true;
+		    outputStringBuilder.append("I require a companion android app to operate. " + getPhonePairMessage(invitationCode));
 		}
 		else if (customerState.getMobileRegistrationId() != null)
 		{
@@ -177,30 +188,60 @@ public class MainController {
 		    	HashMap<String,String> payload = new HashMap<>();
 		    	payload.put(REQUEST_ID,requestId);
 		    	
-		        sendPushMessage(customerState.getMobileRegistrationId(),payload);
-		        System.out.println("Sent the push message with request id: " + requestId);
-		        outputStringBuilder.append("Ringing your phone.");
+		        try
+                {
+		            card.setSubtitle("Find Phone");
+                    String messageId = sendPushMessage(customerState.getMobileRegistrationId(),payload);
+                    log.info("Sent the push message with request id: " + requestId + ". Message id [" + messageId + "]");
+                    if (isPhoneFinderQuestionRequest(speechletRequest))
+                    {
+                        outputStringBuilder.append("I'm not sure. Let me ring it for you. ");
+                    }
+                    else 
+                    {
+                        outputStringBuilder.append("Your phone must be ringing now. ");
+                    }
+                } catch (PushMessageSendFailedException ex)
+                {
+                    log.error(ex);
+                    outputStringBuilder.append("I'm sorry, I'm having trouble contacting your phone. I cannot find your phone now. ");
+                }
 		}
 		else if (System.currentTimeMillis() > customerState.getInvitationExpiryTimeMillis())
 		{
+		    card.setSubtitle("Invitation Pin Expired");
 		    InvitationCode invitationCode = generateRandomInvitationCode();
 		    customerState.setInvitationCode(invitationCode.getGuiCode());
 		    customerState.setInvitationVuiCode(invitationCode.getVuiCode());
 		    customerState.setInvitationExpiryTimeMillis(System.currentTimeMillis() + FIVE_MINS_MILLIS);
-		    outputStringBuilder.append("Please install " 
-                    + APP_ANDROID_NAME + " from google android playstore and provide " + invitationCode.getVuiCode() + " as the invitation code to pair the android app with Alexa");
+		    outputStringBuilder.append(getPhonePairMessage(invitationCode));
+		    includeAppLinkInCard = true;
 		}
 		else {
+		    card.setSubtitle("Regenerating Invitation Pin");
+		    // invitation code is still valid
 		    String invitationVuiCode = customerState.getInvitationVuiCode();
-		    outputStringBuilder.append("Please install " 
-                    + APP_ANDROID_NAME + " from google android playstore and provide " + invitationVuiCode + " as the invitation code to pair the android app with Alexa");
+		    outputStringBuilder.append("Your invitation pin is " + invitationVuiCode + ". ");
+		    outputStringBuilder.append(ANDROID_APP_INSTALLATION_MESSAGE);
+		    includeAppLinkInCard = true;
 		}
 
 		speechoutput.setText(outputStringBuilder.toString());
+		if (includeAppLinkInCard)
+		{
+		    outputStringBuilder.append("\n\nAndroid App link: http://bit.ly/alexaphonefinder");
+		}
+		card.setContent(outputStringBuilder.toString());
 		return objectMapper.writeValueAsString(speechletResponse);
 	}
 
-	@Data
+	private String getPhonePairMessage(InvitationCode invitationCode)
+    {
+        return ANDROID_APP_INSTALLATION_MESSAGE + "Provide " + 
+	            invitationCode.getVuiCode() + " as the invitation pin on android app.";
+    }
+
+    @Data
 	class InvitationCode 
 	{
 	    private String vuiCode;
@@ -245,13 +286,234 @@ public class MainController {
 	@ResponseBody
 	public String genericEntryMethod2(@RequestBody String request)
 			throws IOException {
-		System.out.println("Request in /speechlet2= " + request);
+		log.info("Request in /speechlet2= " + request);
 		SpeechletRequest speechletRequest = objectMapper.readValue(request,
 				SpeechletRequest.class);
-		if (speechletRequest.getRequest() != null) {
-		    return handleLaunchRequest(speechletRequest);
+		if (isPhoneFinderRequest(speechletRequest)) 
+		{
+		    return handleFindPhoneRequest(speechletRequest);
+		}
+		else if (isUnpairPhoneRequest(speechletRequest))
+		{
+		    return unpairPhone(speechletRequest);
+		}
+		else if (isExitRequest(speechletRequest))
+		{
+		    log.info("Exit request. Nothing to do");
+		    return "";
+		}
+		else if (isHelpRequest(speechletRequest))
+		{
+		    return handleHelpRequest(speechletRequest);
 		}
 		return handleGenericError("Request object is null");
 	}
+
+    private String handleHelpRequest(SpeechletRequest speechletRequest) throws JsonProcessingException
+    {
+        SpeechletResponse speechletResponse = new SpeechletResponse();
+        Response response = new Response();
+        response.setShouldEndSession(true);
+        speechletResponse.setResponse(response);
+        
+        StringBuilder outputStringBuilder = new StringBuilder();
+        outputStringBuilder.append("You can say \"open " + APP_VUI_NAME + " and find my phone\", or simply say \"open " + APP_VUI_NAME + "\" to use me. ");
+        
+        OutputSpeech speechoutput = new OutputSpeech();
+        response.setOutputSpeech(speechoutput);
+        speechoutput.setText(outputStringBuilder.toString());
+        
+        Card card = new Card();
+        card.setContent(outputStringBuilder.toString());
+        card.setTitle(APP_VUI_NAME);
+        card.setSubtitle("Help");
+        response.setCard(card);
+        
+        return objectMapper.writeValueAsString(speechletResponse);
+    }
+
+    private String unpairPhone(SpeechletRequest speechletRequest) throws JsonProcessingException
+    {
+        SpeechletResponse speechletResponse = new SpeechletResponse();
+        Response response = new Response();
+        response.setShouldEndSession(true);
+        speechletResponse.setResponse(response);
+        
+        StringBuilder outputStringBuilder = new StringBuilder();
+        CustomerState customerState = null;
+        User user = speechletRequest.getSession().getUser();
+        customerState = storageInstance.getCustomerStateFromUserId(user.getUserId());
+        if (customerState == null)
+        {
+            outputStringBuilder.append("I don't have your phone paired. ");
+        }
+        else
+        {
+            storageInstance.invalidateCustomerStateFromUsedId(user.getUserId());
+            outputStringBuilder.append("I have unpaired your phone successfully");
+        }
+        
+        OutputSpeech speechoutput = new OutputSpeech();
+        response.setOutputSpeech(speechoutput);
+        speechoutput.setText(outputStringBuilder.toString());
+        
+        Card card = new Card();
+        card.setContent(outputStringBuilder.toString());
+        card.setTitle(APP_VUI_NAME);
+        card.setSubtitle("Unpairing phone");
+        response.setCard(card);
+        
+        return objectMapper.writeValueAsString(speechletResponse);
+    }
+
+    private boolean isExitRequest(SpeechletRequest speechletRequest)
+    {
+        if (speechletRequest.getRequest() == null)
+        {
+            log.error("Request object in speechlet request is null");
+            return false;
+        }
+        AbstractRequest abstractRequest = speechletRequest.getRequest();
+        if (abstractRequest instanceof SessionEndedRequest)
+        {
+            log.info("request is session ended request");
+            return true;
+        }
+        
+        return false;
+    }
+
+    private boolean isUnpairPhoneRequest(SpeechletRequest speechletRequest)
+    {
+        if (speechletRequest.getRequest() == null)
+        {
+            log.error("Request object in speechlet request is null");
+            return false;
+        }
+        AbstractRequest abstractRequest = speechletRequest.getRequest();
+        if (abstractRequest instanceof LaunchRequest)
+        {
+            log.info("request is launch request");
+            return false;
+        }
+        
+        if (abstractRequest instanceof IntentRequest)
+        {
+            log.info("request is launch request");
+            IntentRequest intentRequest = (IntentRequest) abstractRequest;
+            if (intentRequest.getIntent() == null)
+            {
+                log.error("intent req does not contain an intent");
+                return false;
+            }
+            
+            if ("UnpairPhone".equals(intentRequest.getIntent().getName()))
+            {
+                log.info("request is UnpairPhone intent.");
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private boolean isHelpRequest(SpeechletRequest speechletRequest)
+    {
+        if (speechletRequest.getRequest() == null)
+        {
+            log.error("Request object in speechlet request is null");
+            return false;
+        }
+        AbstractRequest abstractRequest = speechletRequest.getRequest();
+        if (abstractRequest instanceof LaunchRequest)
+        {
+            log.info("request is launch request");
+            return false;
+        }
+        
+        if (abstractRequest instanceof IntentRequest)
+        {
+            log.info("request is launch request");
+            IntentRequest intentRequest = (IntentRequest) abstractRequest;
+            if (intentRequest.getIntent() == null)
+            {
+                log.error("intent req does not contain an intent");
+                return false;
+            }
+            
+            if ("Help".equals(intentRequest.getIntent().getName()))
+            {
+                log.info("request is Help intent.");
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isPhoneFinderRequest(SpeechletRequest speechletRequest)
+    {
+        if (speechletRequest.getRequest() == null)
+        {
+            log.error("Request object in speechlet request is null");
+            return false;
+        }
+        AbstractRequest abstractRequest = speechletRequest.getRequest();
+        if (abstractRequest instanceof LaunchRequest)
+        {
+            log.info("request is launch request");
+            return true;
+        }
+        
+        if (abstractRequest instanceof IntentRequest)
+        {
+            log.info("request is launch request");
+            IntentRequest intentRequest = (IntentRequest) abstractRequest;
+            if (intentRequest.getIntent() == null)
+            {
+                log.error("intent req does not contain an intent");
+                return false;
+            }
+            
+            if ("FindPhone".equals(intentRequest.getIntent().getName()) ||
+                    "QuestionWhereIsPhone".equals(intentRequest.getIntent().getName()))
+            {
+                log.info("request is FindPhone or QuestionWhereIsPhone intent.");
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    private boolean isPhoneFinderQuestionRequest(SpeechletRequest speechletRequest)
+    {
+        if (speechletRequest.getRequest() == null)
+        {
+            log.error("Request object in speechlet request is null");
+            return false;
+        }
+        AbstractRequest abstractRequest = speechletRequest.getRequest();
+        if (abstractRequest instanceof LaunchRequest)
+        {
+            log.info("request is launch request");
+            return false;
+        }
+        
+        if (abstractRequest instanceof IntentRequest)
+        {
+            log.info("request is launch request");
+            IntentRequest intentRequest = (IntentRequest) abstractRequest;
+            if (intentRequest.getIntent() == null)
+            {
+                log.error("intent req does not contain an intent");
+                return false;
+            }
+            
+            if ("QuestionWhereIsPhone".equals(intentRequest.getIntent().getName()))
+            {
+                log.info("request is FindPhone or QuestionWhereIsPhone intent.");
+                return true;
+            }
+        }
+        return false;
+    }
 
 }
