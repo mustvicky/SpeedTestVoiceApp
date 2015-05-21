@@ -14,6 +14,7 @@ import org.hibernate.id.UUIDGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
@@ -78,9 +79,15 @@ public class MainController {
 
 	private static class PushMessageSendFailedException extends Exception
 	{
-	    public PushMessageSendFailedException(String errMsg)
+	    private final String errorCode;
+	    public String getErrorCode()
+        {
+            return errorCode;
+        }
+	    public PushMessageSendFailedException(String errorCode, String errMsg)
         {
             super(errMsg);
+            this.errorCode = errorCode;
         }
 	}
 	private String sendPushMessage(String mobileRegistrationId,
@@ -94,7 +101,7 @@ public class MainController {
 		if (result == null || result.getMessageId() == null || result.getErrorCodeName() != null)
 		{
 		    log.error("Error in the result object. Result [" + result + "]");
-		    throw new PushMessageSendFailedException("Error in sending push message");
+		    throw new PushMessageSendFailedException(result.getErrorCodeName(), "Error in sending push message");
 		}
 		return result.getMessageId();
 	}
@@ -203,8 +210,17 @@ public class MainController {
                     }
                 } catch (PushMessageSendFailedException ex)
                 {
-                    log.error(ex);
-                    outputStringBuilder.append("I'm sorry, I'm having trouble contacting your phone. I cannot find your phone now. ");
+                    if ("NotRegistered".equals(ex.getErrorCode()))
+                    {
+                        log.warn(ex);
+                        storageInstance.invalidateCustomerStateFromUsedId(user.getUserId());
+                        outputStringBuilder.append("I'm sorry, looks like you have uninstalled the phone app. I have unpaired your phone successfully. ");
+                    }
+                    else
+                    {
+                        log.error(ex);
+                        outputStringBuilder.append("I'm sorry, I'm having trouble contacting your phone. ");
+                    }
                 }
 		}
 		else if (System.currentTimeMillis() > customerState.getInvitationExpiryTimeMillis())
@@ -284,9 +300,11 @@ public class MainController {
 
 	@RequestMapping(value = "/speechlet2", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
 	@ResponseBody
-	public String genericEntryMethod2(@RequestBody String request)
+	public String genericEntryMethod2(@RequestBody String request, @RequestHeader("Signature") String signature, 
+	        @RequestHeader("SignatureCertChainUrl") String signatureCertChainUrl)
 			throws IOException {
 		log.info("Request in /speechlet2= " + request);
+		log.info("Signature = [" + signature + "], and signature url = [" + signatureCertChainUrl + "]");
 		SpeechletRequest speechletRequest = objectMapper.readValue(request,
 				SpeechletRequest.class);
 		if (isPhoneFinderRequest(speechletRequest)) 
@@ -317,7 +335,8 @@ public class MainController {
         speechletResponse.setResponse(response);
         
         StringBuilder outputStringBuilder = new StringBuilder();
-        outputStringBuilder.append("You can say \"open " + APP_VUI_NAME + " and find my phone\", or simply say \"open " + APP_VUI_NAME + "\" to use me. ");
+        outputStringBuilder.append("You can say \"open " + APP_VUI_NAME + " and find my phone\", or simply say \"open " + APP_VUI_NAME + "\" to use me. "
+                + "You can also say \"open " + APP_VUI_NAME + " and unpair my phone\" to disconnect your android phone with Alexa app." );
         
         OutputSpeech speechoutput = new OutputSpeech();
         response.setOutputSpeech(speechoutput);
@@ -350,7 +369,7 @@ public class MainController {
         else
         {
             storageInstance.invalidateCustomerStateFromUsedId(user.getUserId());
-            outputStringBuilder.append("I have unpaired your phone successfully");
+            outputStringBuilder.append("I have unpaired your phone successfully. ");
         }
         
         OutputSpeech speechoutput = new OutputSpeech();
