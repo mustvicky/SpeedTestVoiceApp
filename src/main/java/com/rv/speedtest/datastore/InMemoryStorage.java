@@ -2,16 +2,16 @@ package com.rv.speedtest.datastore;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Random;
 
-import com.rv.speedtest.datastore.model.CustomerRequestState;
+import com.rv.speedtest.api.model.InvitationCode;
 import com.rv.speedtest.datastore.model.CustomerState;
 
-public class InMemoryStorage implements Storage
+public class InMemoryStorage /*implements Storage*/
 {
+    /*
     private Map<String, CustomerState> customerToCustomerState = new HashMap<String, CustomerState>();
     private Map<String, CustomerState> inviteCodeToCustomerState = new HashMap<String, CustomerState>();
-    private Map<String, CustomerRequestState> customerToRequestState = new HashMap<String, CustomerRequestState>();
-    private Map<String, CustomerRequestState> requestToRequestState = new HashMap<String, CustomerRequestState>();
 
     @Override
     public synchronized CustomerState getCustomerStateFromUserId(String userId)
@@ -48,7 +48,7 @@ public class InMemoryStorage implements Storage
     }
 
     @Override
-    public synchronized boolean createCustomerState(CustomerState customerState)
+    public synchronized boolean saveCustomerState(CustomerState customerState)
     {
 //        CustomerState old = customerToCustomerState.get(customerState.getUserId());
 //        if (old != null)
@@ -68,46 +68,34 @@ public class InMemoryStorage implements Storage
         return true;
     }
 
+
     @Override
-    public synchronized CustomerRequestState getCustomerRequestState(CustomerState customerState)
+    public InvitationCode getUniqueInvitationCode()
     {
-        return customerToRequestState.get(customerState.getUserId());
+        return generateRandomInvitationCode();
     }
     
-    @Override
-    public synchronized boolean invalidateCustomerRequest(String requestId)
+    private InvitationCode generateRandomInvitationCode()
     {
-        CustomerRequestState requestState = requestToRequestState.remove(requestId);
-        if (requestState != null)
+        InvitationCode ic = new InvitationCode();
+        int randomNumber = Math.abs((new Random().nextInt() % 10000));
+        ic.setGuiCode(randomNumber + "");
+        StringBuilder randomCode = new StringBuilder();
+        while (randomNumber > 0)
         {
-            customerToRequestState.remove(requestState.getCustomerState().getUserId());
-            return true;
+            int lastDigit = randomNumber % 10;
+            randomNumber /= 10;
+            randomCode.insert(0, " " + lastDigit);
         }
+        ic.setVuiCode(randomCode.substring(1, randomCode.length()));
+        return ic;
+    }
+
+    @Override
+    public boolean invalidateCustomerRequest(String requestId)
+    {
+        // TODO Auto-generated method stub
         return false;
     }
-    
-    @Override
-    public CustomerRequestState getCustomerRequestState(String requestId)
-    {
-        return requestToRequestState.get(requestId);
-    }
-
-    @Override
-    public boolean createCustomerRequestState(CustomerRequestState customerRequestState)
-    {
-//        CustomerRequestState old = customerToRequestState.get(customerRequestState.getCustomerState().getUserId());
-//        if (old != null)
-//        {
-//            throw new CustomerRequestAlreadyExists("Customer [" + customerRequestState.getCustomerState().getUserId() + "] request already exists");
-//        }
-//        
-//        old = requestToRequestState.get(customerRequestState.getCustomerRequestId());
-//        if (old != null)
-//        {
-//            throw new CustomerRequestAlreadyExists("Customer request [" + customerRequestState.getCustomerRequestId() + "] already exists");
-//        }
-        requestToRequestState.put(customerRequestState.getCustomerRequestId(), customerRequestState);
-        return true;
-    }
-
+*/
 }

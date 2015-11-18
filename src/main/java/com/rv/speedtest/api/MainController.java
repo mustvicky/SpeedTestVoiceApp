@@ -1,16 +1,14 @@
 package com.rv.speedtest.api;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map.Entry;
-import java.util.Random;
-import java.util.UUID;
 
-import lombok.Data;
 import lombok.extern.apachecommons.CommonsLog;
 
 import org.apache.commons.lang3.RandomStringUtils;
-import org.hibernate.id.UUIDGenerator;
+import org.joda.time.DateTime;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -25,21 +23,18 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rv.speedtest.api.model.AbstractRequest;
 import com.rv.speedtest.api.model.Card;
 import com.rv.speedtest.api.model.IntentRequest;
+import com.rv.speedtest.api.model.InvitationCode;
 import com.rv.speedtest.api.model.LaunchRequest;
 import com.rv.speedtest.api.model.OutputSpeech;
 import com.rv.speedtest.api.model.RegisterDeviceRequest;
 import com.rv.speedtest.api.model.RegisterDeviceResponse;
-import com.rv.speedtest.api.model.ReportNetworkSpeedRequest;
-import com.rv.speedtest.api.model.ReportNetworkSpeedResponse;
 import com.rv.speedtest.api.model.Response;
 import com.rv.speedtest.api.model.SessionEndedRequest;
 import com.rv.speedtest.api.model.SpeechletRequest;
 import com.rv.speedtest.api.model.SpeechletResponse;
 import com.rv.speedtest.api.model.User;
 import com.rv.speedtest.datastore.Storage;
-import com.rv.speedtest.datastore.model.CustomerRequestState;
 import com.rv.speedtest.datastore.model.CustomerState;
-import com.rv.speedtest.datastore.model.NetworkSpeedResponse;
 import com.rv.speedtest.gcm.server.Message;
 import com.rv.speedtest.gcm.server.Message.Builder;
 import com.rv.speedtest.gcm.server.Result;
@@ -48,11 +43,10 @@ import com.rv.speedtest.gcm.server.Sender;
 @Controller
 @CommonsLog
 public class MainController {
-	private static final String APP_VUI_NAME = "Phone finder";
-	private static final String APP_ANDROID_NAME = "Alexa Phone Finder";
+	private static final String APP_VUI_NAME = "Phone Finder for Alexa";
+	private static final String APP_ANDROID_NAME = "Phone Finder for Alexa";
 	private static final String ANDROID_APP_INSTALLATION_MESSAGE = "Please install \""  + APP_ANDROID_NAME + "\" from google play store or amazon app store. ";
     private static final int FIVE_MINS_MILLIS = 60*5*1000;
-    private static final String GCM_SEND_URL = "https://android.googleapis.com/gcm/send";
 
     // Sender id for caricaturers. Check from : https://console.developers.google.com/project/360023129197/apiui/credential?authuser=0
 	private static final String AUTH_KEY = "AIzaSyBJA1IZj-t7iEx1K3fdZIAju9b966skWOA";
@@ -115,42 +109,29 @@ public class MainController {
 		}
 	}
 
-	@RequestMapping(value = "/reportNetworkSpeed", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
-    @ResponseBody
-	public String reportNetworkSpeed(@RequestBody String request) throws IOException
-	{
-	    ReportNetworkSpeedRequest networkSpeed = objectMapper.readValue(request, ReportNetworkSpeedRequest.class);
-	    log.info("Speed : "+networkSpeed.getNetworkSpeedInKb());
-	    CustomerRequestState requestState = storageInstance.getCustomerRequestState(networkSpeed.getMessageId());
-	    ReportNetworkSpeedResponse networkSpeedResponse = new ReportNetworkSpeedResponse();
-	    if (requestState == null)
-	    {
-	        networkSpeedResponse.setError("Couldn't find any pending request");
-	        return objectMapper.writeValueAsString(networkSpeedResponse);
-	    }
-	    NetworkSpeedResponse speedResponse = new NetworkSpeedResponse();
-	    speedResponse.setDownloadSpeedInKB(networkSpeed.getNetworkSpeedInKb());
-	    requestState.setNetworkSpeedResponse(speedResponse);
-	    return objectMapper.writeValueAsString(networkSpeedResponse);
-	}
-	
 	@RequestMapping(value = "/registerDevice", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
     @ResponseBody
-	public String registerDevice(@RequestBody String request) throws IOException {
+	
+    public String registerDevice(@RequestBody String request) throws IOException {
 	    RegisterDeviceRequest registerDeviceRequest = objectMapper.readValue(request, RegisterDeviceRequest.class);
-	    CustomerState state = storageInstance.getCustomerStateFromInviteCode(registerDeviceRequest.getInvitationCode());
+	    log.info("Register device request with registration code = ["+registerDeviceRequest.getMobileRegistrationId()+
+	            "], and invitation code = ["+registerDeviceRequest.getInvitationCode()+"]");
+	    InvitationCode invitationCode = new InvitationCode();
+	    invitationCode.setCode(registerDeviceRequest.getInvitationCode());
+	    CustomerState customerState = storageInstance.getCustomerStateFromInviteCode(invitationCode);
 	    RegisterDeviceResponse response = new RegisterDeviceResponse();
-	    if (state == null)
+	    if (customerState == null)
 	    {
 	        response.setError("App couldn't identify your invitation pin: " + registerDeviceRequest.getInvitationCode());
 	    }
-	    else if (state.getMobileRegistrationId() != null)
+	    else if (customerState.getDeviceRegistrationId() != null)
 	    {
-	        response.setError("Your mobile is already paired.");
+	        response.setError("Your device is already paired.");
 	    }
 	    else 
 	    {
-	        state.setMobileRegistrationId(registerDeviceRequest.getMobileRegistrationId());
+	        customerState.setDeviceRegistrationId(registerDeviceRequest.getMobileRegistrationId());
+	        storageInstance.saveCustomerState(customerState);
 	    }
 	    return objectMapper.writeValueAsString(response);
 	}
@@ -169,26 +150,24 @@ public class MainController {
         response.setCard(card);
         
 		StringBuilder outputStringBuilder = new StringBuilder();
-		CustomerState customerState = null;
 		User user = speechletRequest.getSession().getUser();
-		customerState = storageInstance.getCustomerStateFromUserId(user.getUserId());
+		CustomerState customerState = storageInstance.getCustomerStateFromUserId(user.getUserId());
 		
 		boolean includeAppLinkInCard = false;
 		if (customerState == null)
 		{
 		    outputStringBuilder.append("Welcome to " + APP_VUI_NAME + ". ");
 		    customerState = new CustomerState();
-		    InvitationCode invitationCode = generateRandomInvitationCode();
-		    customerState.setInvitationCode(invitationCode.getGuiCode());
-		    customerState.setInvitationVuiCode(invitationCode.getVuiCode());
-		    customerState.setInvitationExpiryTimeMillis(System.currentTimeMillis() + FIVE_MINS_MILLIS);
+		    InvitationCode invitationCode = storageInstance.getUniqueInvitationCode();
+		    customerState.setInvitationCode(invitationCode.getCode());
+		    customerState.setInvitationCodeExpiryTimeStringUTC(DateUtils.toDateString(DateUtils.getInvitationCodeExpiryTimeFromNow()));
 		    customerState.setUserId(user.getUserId());
-		    storageInstance.createCustomerState(customerState);
+		    storageInstance.saveCustomerState(customerState);
 		    card.setSubtitle("Pair Phone");
 		    includeAppLinkInCard = true;
 		    outputStringBuilder.append("I require a companion android app to operate. " + getPhonePairMessage(invitationCode));
 		}
-		else if (customerState.getMobileRegistrationId() != null)
+		else if (customerState.getDeviceRegistrationId() != null)
 		{
 		        // send the message
 		    	String requestId = generateRequestId();
@@ -198,7 +177,7 @@ public class MainController {
 		        try
                 {
 		            card.setSubtitle("Find Phone");
-                    String messageId = sendPushMessage(customerState.getMobileRegistrationId(),payload);
+                    String messageId = sendPushMessage(customerState.getDeviceRegistrationId(), payload);
                     log.info("Sent the push message with request id: " + requestId + ". Message id [" + messageId + "]");
                     if (isPhoneFinderQuestionRequest(speechletRequest))
                     {
@@ -214,7 +193,7 @@ public class MainController {
                     {
                         log.warn(ex);
                         storageInstance.invalidateCustomerStateFromUsedId(user.getUserId());
-                        outputStringBuilder.append("I'm sorry, looks like you have uninstalled the phone app. I have unpaired your phone successfully. ");
+                        outputStringBuilder.append("I'm sorry, looks like you have uninstalled the phone app. I have unpaired your phone from "+ APP_VUI_NAME +". ");
                     }
                     else
                     {
@@ -223,26 +202,26 @@ public class MainController {
                     }
                 }
 		}
-		else if (System.currentTimeMillis() > customerState.getInvitationExpiryTimeMillis())
+		else if (DateUtils.toDateString(new DateTime().toDate()).compareTo(customerState.getInvitationCodeExpiryTimeStringUTC()) > 0)
 		{
 		    card.setSubtitle("Invitation Pin Expired");
-		    InvitationCode invitationCode = generateRandomInvitationCode();
-		    customerState.setInvitationCode(invitationCode.getGuiCode());
-		    customerState.setInvitationVuiCode(invitationCode.getVuiCode());
-		    customerState.setInvitationExpiryTimeMillis(System.currentTimeMillis() + FIVE_MINS_MILLIS);
+		    InvitationCode invitationCode = storageInstance.getUniqueInvitationCode();
+		    customerState.setInvitationCode(invitationCode.getCode());
+		    customerState.setInvitationCodeExpiryTimeStringUTC(DateUtils.toDateString(DateUtils.getInvitationCodeExpiryTimeFromNow()));
 		    outputStringBuilder.append(getPhonePairMessage(invitationCode));
+		    storageInstance.saveCustomerState(customerState);
 		    includeAppLinkInCard = true;
 		}
 		else {
-		    card.setSubtitle("Regenerating Invitation Pin");
+		    card.setSubtitle("Reusing Invitation Pin");
 		    // invitation code is still valid
-		    String invitationVuiCode = customerState.getInvitationVuiCode();
-		    outputStringBuilder.append("Your invitation pin is " + invitationVuiCode + ". ");
+		    String invitationVuiCode = customerState.getInvitationCode();
+		    outputStringBuilder.append("Your invitation pin is <say-as interpret-as=\"digits\">" + invitationVuiCode + "</say-as>. ");
 		    outputStringBuilder.append(ANDROID_APP_INSTALLATION_MESSAGE);
 		    includeAppLinkInCard = true;
 		}
 
-		speechoutput.setText(outputStringBuilder.toString());
+		speechoutput.setSsml(outputStringBuilder.toString());
 		if (includeAppLinkInCard)
 		{
 		    outputStringBuilder.append("\n\nAndroid App link: http://bit.ly/alexaphonefinder");
@@ -253,31 +232,8 @@ public class MainController {
 
 	private String getPhonePairMessage(InvitationCode invitationCode)
     {
-        return ANDROID_APP_INSTALLATION_MESSAGE + "Provide " + 
-	            invitationCode.getVuiCode() + " as the invitation pin on android app.";
-    }
-
-    @Data
-	class InvitationCode 
-	{
-	    private String vuiCode;
-	    private String guiCode;
-	}
-	
-    private InvitationCode generateRandomInvitationCode()
-    {
-        InvitationCode ic = new InvitationCode();
-        int randomNumber = Math.abs((new Random().nextInt() % 10000));
-        ic.setGuiCode(randomNumber + "");
-        StringBuilder randomCode = new StringBuilder();
-        while (randomNumber > 0)
-        {
-            int lastDigit = randomNumber % 10;
-            randomNumber /= 10;
-            randomCode.insert(0, " " + lastDigit);
-        }
-        ic.setVuiCode(randomCode.substring(1, randomCode.length()));
-        return ic;
+        return ANDROID_APP_INSTALLATION_MESSAGE + "Provide <say-as interpret-as=\"digits\">" + 
+	            invitationCode.getCode() + " </say-as> as the invitation pin on android app.";
     }
 
     private String generateRequestId()
@@ -293,20 +249,19 @@ public class MainController {
 		speechletResponse.setResponse(response);
 		OutputSpeech speechoutput = new OutputSpeech();
 		response.setOutputSpeech(speechoutput);
-		speechoutput.setText(message);
+		speechoutput.setSsml(message);
 
 		return objectMapper.writeValueAsString(speechletResponse);
 	}
 
-	@RequestMapping(value = "/speechlet2", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
+	@RequestMapping(value = "/alexa", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
 	@ResponseBody
-	public String genericEntryMethod2(@RequestBody String request, @RequestHeader("Signature") String signature, 
+	public String alexaEntryMethod(@RequestBody String request, @RequestHeader("Signature") String signature, 
 	        @RequestHeader("SignatureCertChainUrl") String signatureCertChainUrl)
 			throws IOException {
-		log.info("Request in /speechlet2= " + request);
+		log.info("Request in /alexa= " + request);
 		log.info("Signature = [" + signature + "], and signature url = [" + signatureCertChainUrl + "]");
-		SpeechletRequest speechletRequest = objectMapper.readValue(request,
-				SpeechletRequest.class);
+		SpeechletRequest speechletRequest = objectMapper.readValue(request, SpeechletRequest.class);
 		if (isPhoneFinderRequest(speechletRequest)) 
 		{
 		    return handleFindPhoneRequest(speechletRequest);
@@ -340,7 +295,7 @@ public class MainController {
         
         OutputSpeech speechoutput = new OutputSpeech();
         response.setOutputSpeech(speechoutput);
-        speechoutput.setText(outputStringBuilder.toString());
+        speechoutput.setSsml(outputStringBuilder.toString());
         
         Card card = new Card();
         card.setContent(outputStringBuilder.toString());
@@ -374,7 +329,7 @@ public class MainController {
         
         OutputSpeech speechoutput = new OutputSpeech();
         response.setOutputSpeech(speechoutput);
-        speechoutput.setText(outputStringBuilder.toString());
+        speechoutput.setSsml(outputStringBuilder.toString());
         
         Card card = new Card();
         card.setContent(outputStringBuilder.toString());

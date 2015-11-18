@@ -5,15 +5,17 @@ mvn archetype:generate -DgroupId=com.rv.speedtest.app \
 
     mvn eclipse:eclipse -Dwtpversion=2.0
     
-curl --data "" http://localhost:8080/SpeedTestVoiceApp/speechlet2
+curl --data "" http://localhost:8080/SpeedTestVoiceApp/alexa
 
 https://github.com/mustvicky/SpeedTestVoiceApp.git 
 
 curl -H "Accept: application/json" \
---insecure \
 -H "Content-type: application/json" \
+-H "Signature: abc" \
+-H "SignatureCertChainUrl: def" \
+--insecure \
 -d ' {"version":"1.0","session":{"new":true,"sessionId":"amzn1.echo-api.session.f502b4e4-64e3-4548-a973-1ebf5acfd059","user":{"userId":"amzn1.account.AHTJAXUT32L5BJWF3IALP7ASG2WA"}},"request":{"type":"LaunchRequest","requestId":"amzn1.echo-api.request.345f0409-64b9-4024-ae0f-df617a2954a8"}}' \
-http://localhost:8080/SpeedTestVoiceApp/speechlet2
+http://localhost:8080/SpeedTestVoiceApp/alexa
 https://speedtestvoiceapp-1878794768.us-west-2.elb.amazonaws.com/SpeedTestVoiceApp/speechlet
 
 curl -H "Accept: application/json" --insecure -H \

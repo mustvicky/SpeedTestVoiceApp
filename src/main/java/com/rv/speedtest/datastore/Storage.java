@@ -1,6 +1,6 @@
 package com.rv.speedtest.datastore;
 
-import com.rv.speedtest.datastore.model.CustomerRequestState;
+import com.rv.speedtest.api.model.InvitationCode;
 import com.rv.speedtest.datastore.model.CustomerState;
 
 public interface Storage
@@ -11,7 +11,7 @@ public interface Storage
      * @return
      */
     CustomerState getCustomerStateFromUserId(String userId);
-    CustomerState getCustomerStateFromInviteCode(String inviteCode);
+    CustomerState getCustomerStateFromInviteCode(InvitationCode inviteCode);
     
     /**
      * Deletes/Removes the customer state in the system. 
@@ -23,16 +23,11 @@ public interface Storage
     boolean invalidateCustomerStateFromInvitationCode(String inviteCode);
     boolean invalidateCustomerRequest(String requestId);
     
-    boolean createCustomerState(CustomerState customerState);
+    boolean saveCustomerState(CustomerState customerState);
     
     /**
-     * Given a customer state, find the CustomerRequestState from the system. 
-     * If there is no outstanding request state, return null
-     * @param customerState
+     * Returns a unique invitation code by making sure it does not collide with any existing ones which are not yet expired
      * @return
      */
-    CustomerRequestState getCustomerRequestState(CustomerState customerState);
-    CustomerRequestState getCustomerRequestState(String requestId);
-    
-    boolean createCustomerRequestState(CustomerRequestState customerRequestState);
+    InvitationCode getUniqueInvitationCode();
 }

@@ -5,6 +5,6 @@ import lombok.Data;
 @Data
 public class OutputSpeech
 {
-    private String type = "PlainText";
-    private String text;
+    private String type = "SSML";
+    private String ssml;
 }
