@@ -1,7 +1,6 @@
 package com.rv.speedtest.api;
 
 import java.io.IOException;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map.Entry;
 
@@ -17,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
+import com.amazon.speech.speechlet.authentication.SpeechletRequestSignatureVerifier;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -43,10 +43,11 @@ import com.rv.speedtest.gcm.server.Sender;
 @Controller
 @CommonsLog
 public class MainController {
-	private static final String APP_VUI_NAME = "Phone Finder for Alexa";
+	private static final String SPEAK_TAG_OPEN = "<speak>";
+	private static final String SPEAK_TAG_CLOSE = "</speak>";
+    private static final String APP_VUI_NAME = "Phone Finder for Alexa";
 	private static final String APP_ANDROID_NAME = "Phone Finder for Alexa";
 	private static final String ANDROID_APP_INSTALLATION_MESSAGE = "Please install \""  + APP_ANDROID_NAME + "\" from google play store or amazon app store. ";
-    private static final int FIVE_MINS_MILLIS = 60*5*1000;
 
     // Sender id for caricaturers. Check from : https://console.developers.google.com/project/360023129197/apiui/credential?authuser=0
 	private static final String AUTH_KEY = "AIzaSyBJA1IZj-t7iEx1K3fdZIAju9b966skWOA";
@@ -111,7 +112,6 @@ public class MainController {
 
 	@RequestMapping(value = "/registerDevice", method = RequestMethod.POST, produces = "application/json; charset=utf-8")
     @ResponseBody
-	
     public String registerDevice(@RequestBody String request) throws IOException {
 	    RegisterDeviceRequest registerDeviceRequest = objectMapper.readValue(request, RegisterDeviceRequest.class);
 	    log.info("Register device request with registration code = ["+registerDeviceRequest.getMobileRegistrationId()+
@@ -150,6 +150,7 @@ public class MainController {
         response.setCard(card);
         
 		StringBuilder outputStringBuilder = new StringBuilder();
+		outputStringBuilder.append(SPEAK_TAG_OPEN);
 		User user = speechletRequest.getSession().getUser();
 		CustomerState customerState = storageInstance.getCustomerStateFromUserId(user.getUserId());
 		
@@ -220,20 +221,21 @@ public class MainController {
 		    outputStringBuilder.append(ANDROID_APP_INSTALLATION_MESSAGE);
 		    includeAppLinkInCard = true;
 		}
-
+		
+        outputStringBuilder.append(SPEAK_TAG_CLOSE);
 		speechoutput.setSsml(outputStringBuilder.toString());
 		if (includeAppLinkInCard)
 		{
 		    outputStringBuilder.append("\n\nAndroid App link: http://bit.ly/alexaphonefinder");
 		}
-		card.setContent(outputStringBuilder.toString());
+		card.setContent(outputStringBuilder.toString().replaceAll("\\<.*?\\>", ""));
 		return objectMapper.writeValueAsString(speechletResponse);
 	}
 
 	private String getPhonePairMessage(InvitationCode invitationCode)
     {
         return ANDROID_APP_INSTALLATION_MESSAGE + "Provide <say-as interpret-as=\"digits\">" + 
-	            invitationCode.getCode() + " </say-as> as the invitation pin on android app.";
+	            invitationCode.getCode() + "</say-as> as the invitation pin on android app.";
     }
 
     private String generateRequestId()
@@ -262,6 +264,20 @@ public class MainController {
 		log.info("Request in /alexa= " + request);
 		log.info("Signature = [" + signature + "], and signature url = [" + signatureCertChainUrl + "]");
 		SpeechletRequest speechletRequest = objectMapper.readValue(request, SpeechletRequest.class);
+		if (!speechletRequest.isDoNotCheckSignature())
+		{
+		    log.info("Signature should be checked");
+		    try
+		    {
+		        SpeechletRequestSignatureVerifier.checkRequestSignature(request.getBytes(), signature, signatureCertChainUrl);
+		    }
+		    catch (SecurityException ex)
+		    {
+		        log.error("Signature did not match, not proceeding any further");
+		        throw ex;
+		    }
+		}
+		
 		if (isPhoneFinderRequest(speechletRequest)) 
 		{
 		    return handleFindPhoneRequest(speechletRequest);
@@ -290,11 +306,13 @@ public class MainController {
         speechletResponse.setResponse(response);
         
         StringBuilder outputStringBuilder = new StringBuilder();
+        outputStringBuilder.append(SPEAK_TAG_OPEN);
         outputStringBuilder.append("You can say \"open " + APP_VUI_NAME + " and find my phone\", or simply say \"open " + APP_VUI_NAME + "\" to use me. "
                 + "You can also say \"open " + APP_VUI_NAME + " and unpair my phone\" to disconnect your android phone with Alexa app." );
         
         OutputSpeech speechoutput = new OutputSpeech();
         response.setOutputSpeech(speechoutput);
+        outputStringBuilder.append(SPEAK_TAG_CLOSE);
         speechoutput.setSsml(outputStringBuilder.toString());
         
         Card card = new Card();
@@ -314,6 +332,7 @@ public class MainController {
         speechletResponse.setResponse(response);
         
         StringBuilder outputStringBuilder = new StringBuilder();
+        outputStringBuilder.append(SPEAK_TAG_OPEN);
         CustomerState customerState = null;
         User user = speechletRequest.getSession().getUser();
         customerState = storageInstance.getCustomerStateFromUserId(user.getUserId());
@@ -329,6 +348,7 @@ public class MainController {
         
         OutputSpeech speechoutput = new OutputSpeech();
         response.setOutputSpeech(speechoutput);
+        outputStringBuilder.append(SPEAK_TAG_CLOSE);
         speechoutput.setSsml(outputStringBuilder.toString());
         
         Card card = new Card();

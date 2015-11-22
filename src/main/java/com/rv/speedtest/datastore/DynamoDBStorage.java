@@ -13,7 +13,6 @@ import com.amazonaws.services.dynamodbv2.datamodeling.DynamoDBQueryExpression;
 import com.amazonaws.services.dynamodbv2.model.AttributeValue;
 import com.amazonaws.services.dynamodbv2.model.ComparisonOperator;
 import com.amazonaws.services.dynamodbv2.model.Condition;
-import com.amazonaws.services.dynamodbv2.model.ConditionalOperator;
 import com.rv.speedtest.api.DateUtils;
 import com.rv.speedtest.api.model.InvitationCode;
 import com.rv.speedtest.datastore.model.CustomerState;
@@ -22,13 +21,12 @@ import com.rv.speedtest.datastore.model.CustomerState;
 public class DynamoDBStorage implements Storage
 {
     private final DynamoDBMapper mapper;
-    
+    private int INVITATION_CODE_DIGITS = 4;
+        
     public DynamoDBStorage(DynamoDBMapper mapper)
     {
         this.mapper = mapper;
     }
-    
-    private int INVITATION_CODE_DIGITS = 4;
     
     @Override
     public CustomerState getCustomerStateFromUserId(String userId)
@@ -51,7 +49,7 @@ public class DynamoDBStorage implements Storage
         
         DateTime now = new DateTime();
         Condition withinExpiryTimeCondition = new Condition()
-            .withComparisonOperator(ComparisonOperator.LT.toString())
+            .withComparisonOperator(ComparisonOperator.GT.toString())
             .withAttributeValueList(new AttributeValue().withS(DateUtils.toDateString(now.toDate())));
         
         DynamoDBQueryExpression<CustomerState> queryExpression = new DynamoDBQueryExpression<CustomerState>()
@@ -63,7 +61,7 @@ public class DynamoDBStorage implements Storage
         if (customerStates != null && !customerStates.isEmpty())
         {
             log.info("found customer state with invitation code = [" + invitationCode.getCode() + "]");
-            if (customerStates.size() > 0)
+            if (customerStates.size() > 1)
             {
                 log.info("Invalid state, more than 1 object for the invitation code = [" + invitationCode.getCode() + "]. Returning null");
                 return null;
@@ -148,7 +146,7 @@ public class DynamoDBStorage implements Storage
             i++;
             if (randomNumber == 0)
             {
-                randomCode.insert(0, " ");
+                randomCode.insert(0, "0");
             }
             else
             {

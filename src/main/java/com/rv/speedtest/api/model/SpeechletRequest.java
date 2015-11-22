@@ -8,4 +8,5 @@ public class SpeechletRequest
     private String version;
     private Session session;
     private AbstractRequest request;
+    private boolean doNotCheckSignature;
 }
