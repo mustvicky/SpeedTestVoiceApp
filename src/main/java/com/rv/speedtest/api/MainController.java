@@ -47,7 +47,8 @@ public class MainController {
 	private static final String SPEAK_TAG_CLOSE = "</speak>";
     private static final String APP_VUI_NAME = "Phone Finder for Alexa";
 	private static final String APP_ANDROID_NAME = "Phone Finder for Alexa";
-	private static final String ANDROID_APP_INSTALLATION_MESSAGE = "Please install \""  + APP_ANDROID_NAME + "\" from google play store or amazon app store. ";
+	private static final String APP_INVOCATION_NAME = "Phone Finder";
+	private static final String ANDROID_APP_INSTALLATION_MESSAGE = "Please install \""  + APP_ANDROID_NAME + "\" from amazon appstore, or google playstore. ";
 
     // Sender id for caricaturers. Check from : https://console.developers.google.com/project/360023129197/apiui/credential?authuser=0
 	private static final String AUTH_KEY = "AIzaSyBJA1IZj-t7iEx1K3fdZIAju9b966skWOA";
@@ -146,7 +147,6 @@ public class MainController {
 		response.setOutputSpeech(speechoutput);
 		
 		Card card = new Card();
-        card.setTitle(APP_VUI_NAME);
         response.setCard(card);
         
 		StringBuilder outputStringBuilder = new StringBuilder();
@@ -164,7 +164,7 @@ public class MainController {
 		    customerState.setInvitationCodeExpiryTimeStringUTC(DateUtils.toDateString(DateUtils.getInvitationCodeExpiryTimeFromNow()));
 		    customerState.setUserId(user.getUserId());
 		    storageInstance.saveCustomerState(customerState);
-		    card.setSubtitle("Pair Phone");
+		    card.setTitle("Pair Phone");
 		    includeAppLinkInCard = true;
 		    outputStringBuilder.append("I require a companion android app to operate. " + getPhonePairMessage(invitationCode));
 		}
@@ -177,7 +177,7 @@ public class MainController {
 		    	
 		        try
                 {
-		            card.setSubtitle("Find Phone");
+		            card.setTitle("Find Phone");
                     String messageId = sendPushMessage(customerState.getDeviceRegistrationId(), payload);
                     log.info("Sent the push message with request id: " + requestId + ". Message id [" + messageId + "]");
                     if (isPhoneFinderQuestionRequest(speechletRequest))
@@ -194,7 +194,7 @@ public class MainController {
                     {
                         log.warn(ex);
                         storageInstance.invalidateCustomerStateFromUsedId(user.getUserId());
-                        outputStringBuilder.append("I'm sorry, looks like you have uninstalled the phone app. I have unpaired your phone from "+ APP_VUI_NAME +". ");
+                        outputStringBuilder.append("I'm sorry, looks like you have uninstalled the phone app. I have un paired your phone from "+ APP_VUI_NAME +" App.");
                     }
                     else
                     {
@@ -205,7 +205,7 @@ public class MainController {
 		}
 		else if (DateUtils.toDateString(new DateTime().toDate()).compareTo(customerState.getInvitationCodeExpiryTimeStringUTC()) > 0)
 		{
-		    card.setSubtitle("Invitation Pin Expired");
+		    card.setTitle("Invitation Pin Expired");
 		    InvitationCode invitationCode = storageInstance.getUniqueInvitationCode();
 		    customerState.setInvitationCode(invitationCode.getCode());
 		    customerState.setInvitationCodeExpiryTimeStringUTC(DateUtils.toDateString(DateUtils.getInvitationCodeExpiryTimeFromNow()));
@@ -214,7 +214,7 @@ public class MainController {
 		    includeAppLinkInCard = true;
 		}
 		else {
-		    card.setSubtitle("Reusing Invitation Pin");
+		    card.setTitle("Reusing Invitation Pin");
 		    // invitation code is still valid
 		    String invitationVuiCode = customerState.getInvitationCode();
 		    outputStringBuilder.append("Your invitation pin is <say-as interpret-as=\"digits\">" + invitationVuiCode + "</say-as>. ");
@@ -307,8 +307,8 @@ public class MainController {
         
         StringBuilder outputStringBuilder = new StringBuilder();
         outputStringBuilder.append(SPEAK_TAG_OPEN);
-        outputStringBuilder.append("You can say \"open " + APP_VUI_NAME + " and find my phone\", or simply say \"open " + APP_VUI_NAME + "\" to use me. "
-                + "You can also say \"open " + APP_VUI_NAME + " and unpair my phone\" to disconnect your android phone with Alexa app." );
+        outputStringBuilder.append("To find your phone, simply launch the skill anytime. "
+                + "To un pair your phone, say \"Alexa, tell " + APP_INVOCATION_NAME + " to un pair my phone\"");
         
         OutputSpeech speechoutput = new OutputSpeech();
         response.setOutputSpeech(speechoutput);
@@ -316,11 +316,10 @@ public class MainController {
         speechoutput.setSsml(outputStringBuilder.toString());
         
         Card card = new Card();
-        card.setContent(outputStringBuilder.toString());
-        card.setTitle(APP_VUI_NAME);
-        card.setSubtitle("Help");
+        card.setContent(outputStringBuilder.toString().replaceAll("\\<.*?\\>", ""));
+        card.setTitle("Help");
         response.setCard(card);
-        
+
         return objectMapper.writeValueAsString(speechletResponse);
     }
 
@@ -343,7 +342,7 @@ public class MainController {
         else
         {
             storageInstance.invalidateCustomerStateFromUsedId(user.getUserId());
-            outputStringBuilder.append("I have unpaired your phone successfully. ");
+            outputStringBuilder.append("I have un paired your phone successfully. ");
         }
         
         OutputSpeech speechoutput = new OutputSpeech();
@@ -352,9 +351,8 @@ public class MainController {
         speechoutput.setSsml(outputStringBuilder.toString());
         
         Card card = new Card();
-        card.setContent(outputStringBuilder.toString());
-        card.setTitle(APP_VUI_NAME);
-        card.setSubtitle("Unpairing phone");
+        card.setContent(outputStringBuilder.toString().replaceAll("\\<.*?\\>", ""));
+        card.setTitle("Unpairing Phone");
         response.setCard(card);
         
         return objectMapper.writeValueAsString(speechletResponse);
@@ -434,7 +432,8 @@ public class MainController {
                 return false;
             }
             
-            if ("Help".equals(intentRequest.getIntent().getName()))
+            if ("AMAZON.HelpIntent".equals(intentRequest.getIntent().getName()) 
+                    || "Help".equals(intentRequest.getIntent().getName()) )
             {
                 log.info("request is Help intent.");
                 return true;
