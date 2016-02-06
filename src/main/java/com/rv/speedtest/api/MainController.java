@@ -115,7 +115,7 @@ public class MainController {
     @ResponseBody
     public String registerDevice(@RequestBody String request) throws IOException {
 	    RegisterDeviceRequest registerDeviceRequest = objectMapper.readValue(request, RegisterDeviceRequest.class);
-	    log.info("Register device request with registration code = ["+registerDeviceRequest.getMobileRegistrationId()+
+	    log.info("Register device request with registration code = [" +registerDeviceRequest.getMobileRegistrationId()+
 	            "], and invitation code = ["+registerDeviceRequest.getInvitationCode()+"]");
 	    InvitationCode invitationCode = new InvitationCode();
 	    invitationCode.setCode(registerDeviceRequest.getInvitationCode());
